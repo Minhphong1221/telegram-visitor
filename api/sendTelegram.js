@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
   try {
-    await fetch(telegramApiUrl, {
+    const response = await fetch(telegramApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -26,8 +26,16 @@ export default async function handler(req, res) {
       }),
     });
 
+    const data = await response.json();
+    console.log('Telegram API response:', data); // Log phản hồi để debug
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.description || 'Telegram API error' });
+    }
+
     res.status(200).json({ success: true });
   } catch (error) {
+    console.error('Telegram API failed:', error);
     res.status(500).json({ error: 'Failed to send message' });
   }
 }

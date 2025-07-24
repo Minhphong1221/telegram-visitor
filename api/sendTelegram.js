@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import FormData from 'form-data';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
   const baseApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
   try {
-    // Gửi tin nhắn văn bản trước
+    // Gửi tin nhắn text
     const sendText = await fetch(`${baseApiUrl}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -27,12 +28,12 @@ export default async function handler(req, res) {
       }),
     });
 
-    const textResponse = await sendText.json();
     if (!sendText.ok) {
+      const textResponse = await sendText.json();
       return res.status(sendText.status).json({ error: textResponse.description || 'Failed to send text' });
     }
 
-    // Nếu có ảnh base64 thì gửi thêm
+    // Gửi ảnh nếu có
     if (image) {
       const photoBuffer = Buffer.from(image.replace(/^data:image\/\w+;base64,/, ''), 'base64');
 
@@ -46,11 +47,11 @@ export default async function handler(req, res) {
       const sendPhoto = await fetch(`${baseApiUrl}/sendPhoto`, {
         method: 'POST',
         body: formData,
-        headers: formData.getHeaders(), // dùng form-data package
+        headers: formData.getHeaders(),
       });
 
-      const photoResponse = await sendPhoto.json();
       if (!sendPhoto.ok) {
+        const photoResponse = await sendPhoto.json();
         return res.status(sendPhoto.status).json({ error: photoResponse.description || 'Failed to send photo' });
       }
     }

